@@ -121,6 +121,9 @@ class EncoderDecoderStaticDataset(Dataset):
         i = np.random.randint(0, len(data)-self.patch_size)
         data_patch = torch.from_numpy(np.array(data[i:i+self.patch_size, :], dtype=np.float32))
 
+        data_patch /= torch.norm(data_patch, dim=0, keepdim=True)+0.0000001
+        data_patch /= torch.norm(data_patch, dim=1, keepdim=True)+0.0000001
+
         return data_patch.T
 
     def __len__(self):
