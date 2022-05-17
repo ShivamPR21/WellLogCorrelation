@@ -13,7 +13,8 @@ class WellCorrelationDataset:
                  root : str = None,
                  train_preload : bool = False,
                  test_preload : bool = False,
-                 fill_na_method : str = None):
+                 fill_na_method : str = None,
+                 well_filter: str = None):
         self.root : str = root
         self.train_path : str = os.path.join(self.root, 'train.csv')
         self.test_path : str = os.path.join(self.root, 'test.csv')
@@ -28,6 +29,14 @@ class WellCorrelationDataset:
         self.used_cols = ['WELL', 'Z_LOC', 'GR', 'DTC', 'GROUP']
 
         self.__preload__()
+
+        if well_filter is not None:
+            filtered_wells = []
+            for well in self.wells_list:
+                if well_filter in well:
+                    filtered_wells += [well]
+
+            self.wells_list = filtered_wells
 
     def __preload__(self):
         if self.train_preload:
@@ -81,17 +90,21 @@ class EncoderDecoderStaticDataset(Dataset):
                  fill_na_method : str = None,
                  max_itr : int = 10,
                  train : bool = True,
-                 test : bool = False) -> None:
+                 test : bool = False,
+                 well_filter: str = None,
+                 sig_smoothening:int = 0) -> None:
         self.root = root
         self.patch_size = patch_size
         self.resample = resample
         self.features = features
         self.max_itr = max_itr
+        self.sig_smoothening = sig_smoothening
 
         self.dataset : WellCorrelationDataset = WellCorrelationDataset(self.root,
                                                                        fill_na_method=fill_na_method,
                                                                        train_preload=train,
-                                                                       test_preload=test)
+                                                                       test_preload=test,
+                                                                       well_filter=well_filter)
 
     def __getitem_random__(self) -> Any:
 
@@ -118,11 +131,18 @@ class EncoderDecoderStaticDataset(Dataset):
         data = df.loc[:, self.features].values
         assert(self.patch_size <= len(data))
 
-        i = np.random.randint(0, len(data)-self.patch_size)
-        data_patch = torch.from_numpy(np.array(data[i:i+self.patch_size, :], dtype=np.float32))
+        i = np.random.choice(np.arange(0, len(data)-self.patch_size, 50, dtype=np.int32), 1)[0]
+        data_patch = np.array(data[i:i+self.patch_size, :], dtype=np.float32)
 
-        data_patch /= torch.norm(data_patch, dim=0, keepdim=True)+0.0000001
-        data_patch /= torch.norm(data_patch, dim=1, keepdim=True)+0.0000001
+        if self.sig_smoothening > 0:
+            data_patch1: np.ndarray = np.convolve(data_patch[:, 0], np.ones(self.sig_smoothening, dtype=np.float32)/self.sig_smoothening)
+            data_patch2: np.ndarray = np.convolve(data_patch[:, 1], np.ones(self.sig_smoothening, dtype=np.float32)/self.sig_smoothening)
+            data_patch = np.concatenate((np.expand_dims(data_patch1, axis=1), np.expand_dims(data_patch2, axis=1)), axis=1)
+
+        data_patch = torch.from_numpy(data_patch)
+
+        data_patch /= torch.norm(data_patch, dim=0, keepdim=True)+0.00000001
+        data_patch /= torch.norm(data_patch, dim=1, keepdim=True)+0.00000001
 
         return data_patch.T
 

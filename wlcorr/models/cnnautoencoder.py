@@ -2,6 +2,7 @@ from typing import Callable, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
+from torch.nn.functional import interpolate
 
 
 class EncoderDecoder1DCNN(nn.Module):
@@ -25,7 +26,7 @@ class EncoderDecoder1DCNN(nn.Module):
 
         self.encoder, self.enc_size = self.get_encoder()
         self.decoder, self.dec_size = self.get_decoder()
-        self.linears = nn.ModuleList([nn.Linear(self.dec_size, self.size) for i in range(self.in_channels)])
+        # self.linears = nn.ModuleList([nn.Linear(self.dec_size, self.size) for i in range(self.in_channels)])
 
     def conv_layer(self, in_channels : int,
                    out_channels : int,
@@ -49,66 +50,74 @@ class EncoderDecoder1DCNN(nn.Module):
 
 
     def get_encoder(self) -> nn.Sequential:
-        conv1, l_out = self.conv_layer(self.in_channels, 5, 10, 1, 9, 1, self.size)
-        conv2, l_out = self.conv_layer(5, 10, 10, 1, 9, 1, l_out, bias=self.norm_layer is None)
-        conv3, l_out = self.conv_layer(10, 10, 10, 1, 9, 1, l_out)
-        conv4, l_out = self.conv_layer(10, 10, 10, 1, 9, 1, l_out, bias=self.norm_layer is None)
-        conv5, l_out = self.conv_layer(10, 1, 10, 1, 9, 1, l_out)
+        conv1, l_out = self.conv_layer(self.in_channels, 5, 10, 1, 0, 1, self.size)
+        conv2, l_out = self.conv_layer(5, 10, 10, 1, 0, 1, l_out, bias=self.norm_layer is None)
+        conv3, l_out = self.conv_layer(10, 10, 10, 1, 0, 1, l_out)
+        conv4, l_out = self.conv_layer(10, 5, 10, 1, 0, 1, l_out, bias=self.norm_layer is None)
+        conv5, l_out = self.conv_layer(5, 2, 10, 1, 0, 1, l_out)
+        # conv6, l_out = self.conv_layer(20, 20, 10, 1, 0, 1, l_out, bias=self.norm_layer is None)
+        # conv7, l_out = self.conv_layer(20, 10, 10, 1, 0, 1, l_out)
+        # conv8, l_out = self.conv_layer(10, 10, 10, 1, 0, 1, l_out, bias=self.norm_layer is None)
+        # conv9, l_out = self.conv_layer(10, 2, 10, 1, 0, 1, l_out)
 
-        linear = nn.Linear(l_out, self.encoding_len)
+        # linear = nn.Linear(l_out, self.encoding_len)
 
         modules : List[nn.Module] = []
         if self.norm_layer is None:
             modules.extend([conv1, self.activation(), conv2, self.activation(),
                             conv3, self.activation(), conv4, self.activation(),
-                            conv5, self.activation(), linear])
+                            conv5])
         else:
             modules.extend([conv1, self.activation(), conv2, self.norm_layer(10), self.activation(),
-                            conv3, self.activation(), conv4, self.norm_layer(10), self.activation(),
-                            conv5, self.activation(), linear])
+                            conv3, self.activation(), conv4, self.norm_layer(20), self.activation(),
+                            conv5])
 
         encoder = nn.Sequential(*modules)
 
-        return encoder, self.encoding_len
+        return encoder, l_out
 
     def get_decoder(self) -> Tuple[nn.Sequential, int]:
-        conv1, l_out = self.conv_layer(1, 5, 10, 1, 0, 1, self.encoding_len, True)
+        conv1, l_out = self.conv_layer(2, 5, 10, 1, 0, 1, self.enc_size, True)
         conv2, l_out = self.conv_layer(5, 10, 10, 1, 0, 1, l_out, True, bias=self.norm_layer is None)
         conv3, l_out = self.conv_layer(10, 10, 10, 1, 0, 1, l_out, True)
         conv4, l_out = self.conv_layer(10, 5, 10, 1, 0, 1, l_out, True, bias=self.norm_layer is None)
-        conv5, l_out = self.conv_layer(5, 5, 10, 1, 0, 1, l_out, True)
-        conv6, l_out = self.conv_layer(5, 2, 10, 1, 0, 1, l_out, True)
+        conv5, l_out = self.conv_layer(5, 2, 5, 1, 0, 1, l_out, False)
+        # conv6, l_out = self.conv_layer(20, 20, 10, 1, 0, 1, l_out, False, bias=True)
+        # conv7, l_out = self.conv_layer(20, 10, 5, 1, 0, 1, l_out, True)
+        # conv8, l_out = self.conv_layer(10, 10, 5, 1, 0, 1, l_out, True, bias=self.norm_layer is None)
+        # conv9, l_out = self.conv_layer(10, 2, 5, 1, 0, 1, l_out, False)
 
         modules : List[nn.Module] = []
         if self.norm_layer is None:
             modules.extend([conv1, self.activation(), conv2, self.activation(),
                             conv3, self.activation(), conv4, self.activation(),
-                            conv5, self.activation(), conv6, self.activation()])
+                            conv5])
         else:
             modules.extend([conv1, self.activation(), conv2, self.norm_layer(10), self.activation(),
-                            conv3, self.activation(), conv4, self.norm_layer(5), self.activation(),
-                            conv5, self.activation(), conv6, self.activation()])
+                            conv3, self.activation(), conv4, self.norm_layer(20), self.activation(),
+                            conv5])
 
         decoder = nn.Sequential(*modules)
 
         return decoder, l_out
 
     def forward(self, x): # [B, 2, self.size]
-        b = x.shape[0]
-        encoding = self.encoder(x) # [B, 2, self.size] -> [B, 1, self.enc_size]
+        encoding = self.encoder(x) # [B, 2, self.size] -> [B, 2, self.enc_size]
+        enc_feature1, enc_feature2 = encoding.split(1, dim=1)
+        enc_feature1, enc_feature2 = interpolate(enc_feature1, self.encoding_len), interpolate(enc_feature2, self.encoding_len)
+
+        encoding = torch.cat((enc_feature1, enc_feature2), dim=1)
 
         if self.test:
             return encoding
 
-        decoded = self.decoder(encoding) # [B, 1, self.enc_size] -> [B, 2, self.dec_size]
+        decoded: torch.Tensor = self.decoder(encoding) # [B, 1, self.enc_size] -> [B, 2, self.dec_size]
+        feature1, feature2 = decoded.split(1, dim=1)
+        feature1, feature2 = interpolate(feature1, self.size, mode='linear'), interpolate(feature2, self.size, mode='linear')
 
-        features = torch.permute(decoded, (1, 0, 2))
-        out_features = (self.linears[i](features[i, :, :]) for i in range(self.in_channels))
+        output = torch.cat((feature1, feature2), dim=1)
 
-        output = torch.cat(tuple(out_features), dim=0).view(self.in_channels, b, self.size)
-        output = torch.permute(output, (1, 0, 2))
-
-        output = output / torch.norm(output, dim=1, keepdim=True)+0.0000001
-        output = output / torch.norm(output, dim=1, keepdim=True)+0.0000001
+        output = output / torch.norm(output, dim=2, keepdim=True)+0.00000001
+        # output = output / torch.norm(output, dim=1, keepdim=True)+0.00000001
 
         return output
