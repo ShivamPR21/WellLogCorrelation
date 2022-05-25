@@ -28,16 +28,16 @@ def conv_layer(in_channels : int,
 
     return conv_, out_size
 
-def lstm_layer(in_channels: int,
+def gru_layer(in_channels: int,
                 out_channels: int,
                 num_layers: int,
                 in_size: int)-> Tuple[nn.Module, List[int]]:
-    lstm = nn.LSTM(in_channels, out_channels, num_layers, batch_first=True)
+    lstm = nn.GRU(in_channels, out_channels, num_layers, batch_first=True)
     out_size = [in_size, out_channels]
 
     return lstm, out_size
 
-class Encoder1DCNN_LSTM(nn.Module):
+class Encoder1DCNN_GRU(nn.Module):
 
     def __init__(self, in_channels: int=2,
                  in_size: int=100,
@@ -47,19 +47,19 @@ class Encoder1DCNN_LSTM(nn.Module):
         self.activation = activation()
 
         self.cnn1, self.cnn1_size = conv_layer(in_channels, 5, 5, 1, 0, 1, in_size)
-        self.lstm1, self.lstm1_size = lstm_layer(self.cnn1_size[1], 5, num_layers=1, in_size=self.cnn1_size[0])
+        self.lstm1, self.lstm1_size = gru_layer(self.cnn1_size[1], 5, num_layers=1, in_size=self.cnn1_size[0])
 
         self.cnn2, self.cnn2_size = conv_layer(self.lstm1_size[1], 10, 5, 1, 0, 1, self.lstm1_size[0])
-        self.lstm2, self.lstm2_size = lstm_layer(self.cnn2_size[1], 10, num_layers=1, in_size=self.cnn2_size[0])
+        self.lstm2, self.lstm2_size = gru_layer(self.cnn2_size[1], 10, num_layers=1, in_size=self.cnn2_size[0])
 
         self.cnn3, self.cnn3_size = conv_layer(self.lstm2_size[1], 20, 5, 1, 0, 1, self.lstm2_size[0])
-        self.lstm3, self.lstm3_size = lstm_layer(self.cnn3_size[1], 20, num_layers=1, in_size=self.cnn3_size[0])
+        self.lstm3, self.lstm3_size = gru_layer(self.cnn3_size[1], 20, num_layers=1, in_size=self.cnn3_size[0])
 
         self.cnn4, self.cnn4_size = conv_layer(self.lstm3_size[1], 20, 5, 1, 0, 1, self.lstm3_size[0])
-        self.lstm4, self.lstm4_size = lstm_layer(self.cnn4_size[1], 20, num_layers=1, in_size=self.cnn4_size[0])
+        self.lstm4, self.lstm4_size = gru_layer(self.cnn4_size[1], 20, num_layers=1, in_size=self.cnn4_size[0])
 
         self.cnn5, self.cnn5_size = conv_layer(self.lstm4_size[1], 20, 5, 1, 0, 1, self.lstm4_size[0])
-        self.lstm5, self.lstm5_size = lstm_layer(self.cnn5_size[1], 20, num_layers=1, in_size=self.cnn5_size[0])
+        self.lstm5, self.lstm5_size = gru_layer(self.cnn5_size[1], 20, num_layers=1, in_size=self.cnn5_size[0])
 
         self.conv_last, self.size_last = conv_layer(self.lstm5_size[1], 10, 5, 1, 0, 1, self.lstm5_size[0])
 
@@ -69,32 +69,32 @@ class Encoder1DCNN_LSTM(nn.Module):
 
         x = self.cnn1(x).transpose(2, 1) # [B, l_out, n_ch_out]
         x = self.activation(x)
-        hn1, cn1 = torch.rand(1, B, self.lstm1_size[1], device=x.device), torch.rand(1, B, self.lstm1_size[1], device=x.device)
-        x, (hn, cn) = self.lstm1(x, (hn1, cn1)) # [B, n_ch_out, l_out]
+        hn1 = torch.zeros(1, B, self.lstm1_size[1], device=x.device, dtype=torch.float32)
+        x, hn = self.lstm1(x, hn1) # [B, n_ch_out, l_out]
         x = x.transpose(2, 1)
 
         x = self.cnn2(x).transpose(2, 1) # [B, l_out, n_ch_out]
         x = self.activation(x)
-        hn2, cn2 = torch.rand(1, B, self.lstm2_size[1], device=x.device), torch.rand(1, B, self.lstm2_size[1], device=x.device)
-        x, (hn, cn) = self.lstm2(x, (hn2, cn2)) # [B, n_ch_out, l_out]
+        hn2 = torch.zeros(1, B, self.lstm2_size[1], device=x.device, dtype=torch.float32)
+        x, hn = self.lstm2(x, hn2) # [B, n_ch_out, l_out]
         x = x.transpose(2, 1)
 
         x = self.cnn3(x).transpose(2, 1) # [B, l_out, n_ch_out]
         x = self.activation(x)
-        hn3, cn3 = torch.rand(1, B, self.lstm3_size[1], device=x.device), torch.rand(1, B, self.lstm3_size[1], device=x.device)
-        x, (hn, cn) = self.lstm3(x, (hn3, cn3)) # [B, n_ch_out, l_out]
+        hn3 = torch.zeros(1, B, self.lstm3_size[1], device=x.device, dtype=torch.float32)
+        x, hn = self.lstm3(x, hn3) # [B, n_ch_out, l_out]
         x = x.transpose(2, 1)
 
         x = self.cnn4(x).transpose(2, 1) # [B, l_out, n_ch_out]
         x = self.activation(x)
-        hn4, cn4 = torch.rand(1, B, self.lstm4_size[1], device=x.device), torch.rand(1, B, self.lstm4_size[1], device=x.device)
-        x, (hn, cn) = self.lstm4(x, (hn4, cn4)) # [B, n_ch_out, l_out]
+        hn4 = torch.zeros(1, B, self.lstm4_size[1], device=x.device, dtype=torch.float32)
+        x, hn = self.lstm4(x, hn4) # [B, n_ch_out, l_out]
         x = x.transpose(2, 1)
 
         x = self.cnn5(x).transpose(2, 1) # [B, l_out, n_ch_out]
         x = self.activation(x)
-        hn5, cn5 = torch.rand(1, B, self.lstm5_size[1], device=x.device), torch.rand(1, B, self.lstm5_size[1], device=x.device)
-        x, (hn, cn) = self.lstm5(x, (hn5, cn5)) # [B, n_ch_out, l_out]
+        hn5 = torch.zeros(1, B, self.lstm5_size[1], device=x.device, dtype=torch.float32)
+        x, hn = self.lstm5(x, hn5) # [B, n_ch_out, l_out]
         x = x.transpose(2, 1)
 
         x = self.conv_last(x) # [B, n_ch_out, l_out]
@@ -105,7 +105,7 @@ class Encoder1DCNN_LSTM(nn.Module):
         return self.size_last
 
 
-class Decoder1DCNN_LSTM(nn.Module):
+class Decoder1DCNN_GRU(nn.Module):
 
     def __init__(self, in_channels: int,
                  in_size: int,
@@ -116,21 +116,21 @@ class Decoder1DCNN_LSTM(nn.Module):
         # self.encoding_activation = nn.Sigmoid()
 
         self.cnn1, self.cnn1_size = conv_layer(in_channels, 20, 5, 1, 0, 1, in_size, True)
-        self.lstm1, self.lstm1_size = lstm_layer(self.cnn1_size[1], 5, num_layers=1, in_size=self.cnn1_size[0])
+        self.lstm1, self.lstm1_size = gru_layer(self.cnn1_size[1], 5, num_layers=1, in_size=self.cnn1_size[0])
 
         self.cnn2, self.cnn2_size = conv_layer(self.lstm1_size[1], 10, 5, 1, 0, 1, self.lstm1_size[0], True)
-        self.lstm2, self.lstm2_size = lstm_layer(self.cnn2_size[1], 10, num_layers=1, in_size=self.cnn2_size[0])
+        self.lstm2, self.lstm2_size = gru_layer(self.cnn2_size[1], 10, num_layers=1, in_size=self.cnn2_size[0])
 
         self.cnn3, self.cnn3_size = conv_layer(self.lstm2_size[1], 5, 5, 1, 0, 1, self.lstm2_size[0], True)
-        self.lstm3, self.lstm3_size = lstm_layer(self.cnn3_size[1], 5, num_layers=1, in_size=self.cnn3_size[0])
+        self.lstm3, self.lstm3_size = gru_layer(self.cnn3_size[1], 5, num_layers=1, in_size=self.cnn3_size[0])
 
         self.cnn4, self.cnn4_size = conv_layer(self.lstm3_size[1], 5, 5, 1, 0, 1, self.lstm3_size[0], True)
-        self.lstm4, self.lstm4_size = lstm_layer(self.cnn4_size[1], 5, num_layers=1, in_size=self.cnn4_size[0])
+        self.lstm4, self.lstm4_size = gru_layer(self.cnn4_size[1], 5, num_layers=1, in_size=self.cnn4_size[0])
 
         self.cnn5, self.cnn5_size = conv_layer(self.lstm4_size[1], 5, 5, 1, 0, 1, self.lstm4_size[0], True)
-        self.lstm5, self.lstm5_size = lstm_layer(self.cnn5_size[1], 5, num_layers=1, in_size=self.cnn5_size[0])
+        self.lstm5, self.lstm5_size = gru_layer(self.cnn5_size[1], 5, num_layers=1, in_size=self.cnn5_size[0])
 
-        self.conv_last, self.size_last = conv_layer(self.lstm5_size[1], 1, 3, 1, 0, 1, self.lstm5_size[0], False)
+        self.conv_last, self.size_last = conv_layer(self.lstm5_size[1], 2, 3, 1, 0, 1, self.lstm5_size[0], False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x -> [B, n_ch, l]
@@ -138,32 +138,32 @@ class Decoder1DCNN_LSTM(nn.Module):
 
         x = self.cnn1(x).transpose(2, 1) # [B, l_out, n_ch_out]
         x = self.activation(x)
-        hn1, cn1 = torch.rand(1, B, self.lstm1_size[1], device=x.device), torch.rand(1, B, self.lstm1_size[1], device=x.device)
-        x, (hn, cn) = self.lstm1(x, (hn1, cn1)) # [B, n_ch_out, l_out]
+        hn1 = torch.zeros(1, B, self.lstm1_size[1], device=x.device, dtype=torch.float32)
+        x, hn = self.lstm1(x, hn1) # [B, n_ch_out, l_out]
         x = x.transpose(2, 1)
 
         x = self.cnn2(x).transpose(2, 1) # [B, l_out, n_ch_out]
         x = self.activation(x)
-        hn2, cn2 = torch.rand(1, B, self.lstm2_size[1], device=x.device), torch.rand(1, B, self.lstm2_size[1], device=x.device)
-        x, (hn, cn) = self.lstm2(x, (hn2, cn2)) # [B, n_ch_out, l_out]
+        hn2 = torch.zeros(1, B, self.lstm2_size[1], device=x.device, dtype=torch.float32)
+        x, hn = self.lstm2(x, hn2) # [B, n_ch_out, l_out]
         x = x.transpose(2, 1)
 
         x = self.cnn3(x).transpose(2, 1) # [B, l_out, n_ch_out]
         x = self.activation(x)
-        hn3, cn3 = torch.rand(1, B, self.lstm3_size[1], device=x.device), torch.rand(1, B, self.lstm3_size[1], device=x.device)
-        x, (hn, cn) = self.lstm3(x, (hn3, cn3)) # [B, n_ch_out, l_out]
+        hn3 = torch.zeros(1, B, self.lstm3_size[1], device=x.device, dtype=torch.float32)
+        x, hn = self.lstm3(x, hn3) # [B, n_ch_out, l_out]
         x = x.transpose(2, 1)
 
         x = self.cnn4(x).transpose(2, 1) # [B, l_out, n_ch_out]
         x = self.activation(x)
-        hn4, cn4 = torch.rand(1, B, self.lstm4_size[1], device=x.device), torch.rand(1, B, self.lstm4_size[1], device=x.device)
-        x, (hn, cn) = self.lstm4(x, (hn4, cn4)) # [B, n_ch_out, l_out]
+        hn4 = torch.zeros(1, B, self.lstm4_size[1], device=x.device, dtype=torch.float32)
+        x, hn = self.lstm4(x, hn4) # [B, n_ch_out, l_out]
         x = x.transpose(2, 1)
 
         x = self.cnn5(x).transpose(2, 1) # [B, l_out, n_ch_out]
         x = self.activation(x)
-        hn5, cn5 = torch.rand(1, B, self.lstm5_size[1], device=x.device), torch.rand(1, B, self.lstm5_size[1], device=x.device)
-        x, (hn, cn) = self.lstm5(x, (hn5, cn5)) # [B, n_ch_out, l_out]
+        hn5 = torch.zeros(1, B, self.lstm5_size[1], device=x.device, dtype=torch.float32)
+        x, hn = self.lstm5(x, hn5) # [B, n_ch_out, l_out]
         x = x.transpose(2, 1)
 
         x = self.conv_last(x) # [B, n_ch_out, l_out]
@@ -174,7 +174,7 @@ class Decoder1DCNN_LSTM(nn.Module):
     def out_size(self):
         return self.size_last
 
-class EncoderDecoder1DCNN_LSTM(nn.Module):
+class EncoderDecoder1DCNN_GRU(nn.Module):
 
     def __init__(self,
                  in_channels : int = 2,
@@ -191,12 +191,10 @@ class EncoderDecoder1DCNN_LSTM(nn.Module):
         if self.activation is None:
             self.activation = nn.ReLU6
 
-        self.encoder = Encoder1DCNN_LSTM(self.in_channels, self.in_size, self.norm_layer, self.activation)
+        self.encoder = Encoder1DCNN_GRU(self.in_channels, self.in_size, self.norm_layer, self.activation)
         self.encoding_size = self.encoder.out_size()
 
-        print(self.encoding_size)
-
-        self.decoder = Decoder1DCNN_LSTM(self.encoding_size[1], self.encoding_size[0], self.norm_layer, self.activation)
+        self.decoder = Decoder1DCNN_GRU(self.encoding_size[1], self.encoding_size[0], self.norm_layer, self.activation)
         self.decoding_size = self.decoder.out_size()
 
     def forward(self, x): # [B, 2, self.size]
@@ -210,13 +208,13 @@ class EncoderDecoder1DCNN_LSTM(nn.Module):
             return encoding
 
         output: torch.Tensor = self.decoder(encoding) # [B, 1, self.enc_size] -> [B, 2, self.dec_size]
-        output = interpolate(output, self.in_size, mode='linear')
-        # feature1, feature2 = decoded.split(1, dim=1)
-        # feature1, feature2 = interpolate(feature1, self.in_size, mode='linear'), interpolate(feature2, self.in_size, mode='linear')
+        decoded = interpolate(output, self.in_size, mode='linear')
+        feature1, feature2 = decoded.split(1, dim=1)
+        feature1, feature2 = interpolate(feature1, self.in_size, mode='linear'), interpolate(feature2, self.in_size, mode='linear')
 
-        # output = torch.cat((feature1, feature2), dim=1)
+        output = torch.cat((feature1, feature2), dim=1)
 
         output = output / torch.norm(output, dim=2, keepdim=True)+0.00000001
-        # output = output / torch.norm(output, dim=1, keepdim=True)+0.00000001
+        output = output / torch.norm(output, dim=1, keepdim=True)+0.00000001
 
         return output
